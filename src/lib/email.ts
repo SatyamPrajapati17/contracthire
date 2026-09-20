@@ -7,7 +7,7 @@
    (due-date reminders on the `email` channel). ════════════════════════ */
 
 import nodemailer from "nodemailer";
-import type { Transporter } from "nodemailer";
+import type { Transporter, TransportOptions } from "nodemailer";
 
 /** Lazy nodemailer transport so importing this module never opens a socket. */
 let gmailTransport: Transporter | null = null;
@@ -23,7 +23,7 @@ async function gmailSend(from: string, msg: EmailMessage): Promise<EmailSendResu
     secure: true,
     family: 4, // Railway/serverless containers have no IPv6 route
     auth: { user, pass }
-  });
+  } as TransportOptions);
   try {
     const info = await gmailTransport.sendMail({
       from: from.startsWith("ContractLens") ? from : `ContractLens <${user}>`,
@@ -61,7 +61,7 @@ async function gmailOauthSend(from: string, msg: EmailMessage): Promise<EmailSen
     secure: true,
     family: 4,
     auth: { type: "OAuth2", user, clientId, clientSecret, refreshToken }
-  });
+  } as TransportOptions);
   try {
     const info = await oauthTransport.sendMail({
       from: from.startsWith("ContractLens") ? from : `ContractLens <${user}>`,
