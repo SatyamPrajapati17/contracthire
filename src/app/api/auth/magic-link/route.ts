@@ -19,7 +19,10 @@ export async function POST(req: NextRequest) {
   const isGmail = mailer.provider === "gmail";
   const result = await mailer.send(magicLinkEmail(parse.data.email, url, { textOnly: isGmail }));
 
-  if (process.env.NODE_ENV !== "production") {
+  // The one-click fallback link is returned whenever email delivery fails
+  // (fake demo domains, mail outages) or outside production — sign-in never
+  // dead-ends. The URL is single-use and expires in 15 minutes.
+  if (process.env.NODE_ENV !== "production" || !result.delivered) {
     return Response.json({ sent: true, dev_url: url, email_provider: result.provider, email_delivered: result.delivered, email_error: result.error });
   }
   return Response.json({ sent: true, email_provider: result.provider, email_delivered: result.delivered, email_error: result.error });
