@@ -8,6 +8,11 @@
 
 import nodemailer from "nodemailer";
 import type { Transporter, TransportOptions } from "nodemailer";
+import dns from "node:dns";
+
+// Serverless containers (Railway etc.) often have no IPv6 route; make sure
+// smtp.gmail.com resolves to IPv4 first, else SMTP connects ENETUNREACH.
+try { dns.setDefaultResultOrder("ipv4first"); } catch { /* older Node */ }
 
 /** Lazy nodemailer transport so importing this module never opens a socket. */
 let gmailTransport: Transporter | null = null;
