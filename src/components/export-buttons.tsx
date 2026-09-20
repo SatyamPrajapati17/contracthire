@@ -22,11 +22,17 @@ export function ExportButtons({ workspaceId, contractId }: { workspaceId: string
         setMsg({ kind: "ok", text: "CSV download started." });
       } else {
         const res = await fetch(`/api/workspaces/${workspaceId}/sheets`, { method: "POST" });
-        const body = (await res.json()) as { exported?: boolean; spreadsheet_url?: string; error?: { message: string } };
+        const body = (await res.json()) as { exported?: boolean; spreadsheet_url?: string; error?: { message: string; code?: string } };
         if (res.ok && body.exported && body.spreadsheet_url) {
           setMsg({ kind: "ok", text: "Exported to Google Sheets.", url: body.spreadsheet_url });
         } else {
-          setMsg({ kind: "err", text: body.error?.message ?? `Export failed (${res.status}).` });
+          const notConnected = res.status === 400 || /not connected/i.test(body.error?.message ?? "");
+          setMsg({
+            kind: "err",
+            text: notConnected
+              ? "Google Sheets is not connected yet — open Settings → Connections, connect Google and grant Sheets, then retry."
+              : body.error?.message ?? `Export failed (${res.status}).`
+          });
         }
       }
     } catch {
@@ -47,11 +53,16 @@ export function ExportButtons({ workspaceId, contractId }: { workspaceId: string
         </ButtonSmall>
       </div>
       {msg && (
-        <span className={`text-[11px] ${msg.kind === "ok" ? "text-state-verified" : "text-state-conflict"} max-w-xs text-right`}>
+        <span className={`text-xs ${msg.kind === "ok" ? "text-success" : "text-critical"} max-w-sm text-right`} role="status">
           {msg.text}{" "}
           {msg.url && (
             <a href={msg.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">
               Open sheet ↗
+            </a>
+          )}
+          {msg.kind === "err" && (
+            <a href={`/w/${workspaceId}/settings/connections`} className="underline underline-offset-2">
+              Open Settings →
             </a>
           )}
         </span>

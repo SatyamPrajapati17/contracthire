@@ -157,7 +157,7 @@ export function BriefView({ contractId, workspaceId }: { contractId: string; wor
         </div>
       )}
 
-      {/* Field correction inline editor */}
+      {/* Field correction — modal so it's always visible on long pages */}
       {editing && (
         <FieldEditor
           field={data.facts.find((f) => f.field_id === editing) ?? null}
@@ -180,18 +180,24 @@ function FieldEditor({ field, onCancel, onSave }: {
   const [reason, setReason] = useState("");
   if (!field) return null;
   return (
-    <div className="panel p-6 floating mb-6" role="dialog" aria-label={`Correct ${field.label}`}>
-      <h4 className="mb-1">Correct {field.label}</h4>
-      <p className="text-xs text-smoke mb-4">The old value is kept in history. Dependent obligations and alerts recompute.</p>
-      <label className="block text-xs text-graphite mb-1" htmlFor="corr-value">New value</label>
-      <input id="corr-value" value={value} onChange={(e) => setValue(e.target.value)}
-        className="w-full border border-ash rounded-input px-4 py-2.5 text-sm bg-surface mb-3" />
-      <label className="block text-xs text-graphite mb-1" htmlFor="corr-reason">Reason (optional)</label>
-      <input id="corr-reason" value={reason} onChange={(e) => setReason(e.target.value)}
-        className="w-full border border-ash rounded-input px-4 py-2.5 text-sm bg-surface mb-4" />
-      <div className="flex gap-2">
-        <button className="rounded-pill bg-lake text-white text-sm px-5 h-9" onClick={() => onSave(value, field.value_normalized)}>Save correction</button>
-        <button className="rounded-pill border border-ash text-sm px-5 h-9" onClick={onCancel}>Cancel</button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-graphite/40 p-4" role="dialog" aria-modal="true" aria-label={`Correct ${field.label}`}
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="panel p-6 floating w-full max-w-lg">
+        <div className="flex items-start justify-between mb-1">
+          <h4>Correct {field.label}</h4>
+          <button onClick={onCancel} aria-label="Close" className="text-smoke hover:text-offblack text-lg leading-none px-1">×</button>
+        </div>
+        <p className="text-xs text-smoke mb-4">The old value is kept in history. Dependent obligations and alerts recompute.</p>
+        <label className="block text-xs text-graphite mb-1" htmlFor="corr-value">New value</label>
+        <input id="corr-value" value={value} onChange={(e) => setValue(e.target.value)}
+          className="w-full border border-ash rounded-input px-4 py-2.5 text-sm bg-surface mb-3" />
+        <label className="block text-xs text-graphite mb-1" htmlFor="corr-reason">Reason (optional)</label>
+        <input id="corr-reason" value={reason} onChange={(e) => setReason(e.target.value)}
+          className="w-full border border-ash rounded-input px-4 py-2.5 text-sm bg-surface mb-4" />
+        <div className="flex gap-2">
+          <button className="rounded-pill bg-lake text-white text-sm px-5 min-h-11" onClick={() => onSave(value, field.value_normalized)}>Save correction</button>
+          <button className="rounded-pill border border-ash text-sm px-5 min-h-11" onClick={onCancel}>Cancel</button>
+        </div>
       </div>
     </div>
   );
