@@ -65,3 +65,18 @@ WHAT RUNS WHERE
 localhost  : npm run dev  → Next.js app + worker process + 15-min sweeps.
 Vercel     : app + /api/cron/tick every 2 min (vercel.json) claims queued
              pipeline jobs and runs the alert sweep. STORAGE_DRIVER=db.
+Railway    : ONE service running the app (railway.json: npm run build →
+             npm run start; Railway injects PORT automatically — the start
+             script respects it). Set the same env vars as Vercel, including
+             STORAGE_DRIVER=db and CRON_SECRET. For the background pipeline
+             either (a) add a second Railway service from the same repo with
+             start command "npx tsx worker/index.ts" (no PORT needed, same
+             env vars), or (b) hit /api/cron/tick?max=3 on a 2-min schedule
+             with an Authorization: Bearer <CRON_SECRET> header (cron.app or
+             GitHub Actions cron both work).
+
+FACE SIGN-IN NOTES (works on Railway/https automatically)
+---------------------------------------------------------
+The camera requires a secure context: https://... or localhost. Once your
+Railway domain serves https, face enroll/verify works as-is. The tiny face
+models are served from /face-models (public/face-models) — no CDN needed.

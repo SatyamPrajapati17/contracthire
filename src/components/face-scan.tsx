@@ -14,13 +14,16 @@ type Phase = "idle" | "loading" | "camera" | "scanning" | "success" | "failure" 
 
 interface FaceApi {
   nets: {
-    tinyFaceDetector: { loadFromUri: (u: string) => Promise<void> };
-    faceLandmark68TinyNet: { loadFromUri: (u: string) => Promise<void> };
-    faceRecognitionNet: { loadFromUri: (u: string) => Promise<void> };
+    tinyFaceDetector: { loadFromUri: (u: string) => Promise<void>; isLoaded?: boolean };
+    faceLandmark68TinyNet: { loadFromUri: (u: string) => Promise<void>; isLoaded?: boolean };
+    faceRecognitionNet: { loadFromUri: (u: string) => Promise<void>; isLoaded?: boolean };
   };
   TinyFaceDetectorOptions: new (o: { inputSize: number; scoreThreshold: number }) => unknown;
   detectSingleFace: (input: HTMLVideoElement, opts: unknown) => {
-    withFaceLandmarks: () => { withFaceDescriptor: () => Promise<{ descriptor: Float32Array } | undefined> };
+    // NOTE: the landmark net must be passed explicitly — with no argument the
+    // library defaults to the FULL FaceLandmark68Net and throws
+    // "load model before inference" because only the tiny weights ship.
+    withFaceLandmarks: (net?: unknown) => { withFaceDescriptor: () => Promise<{ descriptor: Float32Array } | undefined> };
   };
   euclideanDistance: (a: Float32Array, b: Float32Array) => number;
 }
@@ -55,6 +58,7 @@ export function FaceScan({
   useEffect(() => () => stopCamera(), [stopCamera]);
 
   const loadModels = useCallback(async () => {
+    if (faceApiRef.current) return; // already loaded — never load twice
     setPhase("loading");
     setMessage("Loading face models…");
     const faceapi = (await import("@vladmandic/face-api")) as unknown as FaceApi;
@@ -66,15 +70,28 @@ export function FaceScan({
 
   const startCamera = useCallback(async () => {
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setPhase("error");
+        setMessage("Camera needs a secure context — open the site over HTTPS (or localhost). This preview browser context is not secure.");
+        return;
+      }
       await loadModels();
       setMessage("Requesting camera…");
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: 640, height: 480, facingMode: "user" }
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+      const video = videoRef.current;
+      if (video) {
+        video.srcObject = stream;
+        // Wait for real frames before declaring the camera ready — avoids the
+        // black-video flash and ensures pixels exist for detection.
+        await new Promise<void>((resolve) => {
+          if (video.readyState >= 2) return resolve();
+          video.onloadeddata = () => resolve();
+          setTimeout(resolve, 4000); // never hang forever on flaky cameras
+        });
+        await video.play().catch(() => { /* autoplay guard — muted+playsInline already set */ });
       }
       setPhase("camera");
       setMessage(mode === "enroll" ? "Look straight at the camera, then press Capture." : "Position your face and press Scan.");
@@ -83,6 +100,8 @@ export function FaceScan({
       setMessage(
         e instanceof Error && e.name === "NotAllowedError"
           ? "Camera permission denied. Allow camera access and try again."
+          : e instanceof Error && e.name === "NotFoundError"
+          ? "No camera found on this device."
           : "Could not start the camera. Check that no other app is using it."
       );
     }
@@ -97,7 +116,7 @@ export function FaceScan({
     try {
       const result = await faceapi
         .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
-        .withFaceLandmarks()
+        .withFaceLandmarks(faceapi.nets.faceLandmark68TinyNet)
         .withFaceDescriptor();
       if (!result) {
         setPhase("camera");
@@ -158,7 +177,7 @@ export function FaceScan({
         </div>
 
         <div className="relative aspect-[4/3] rounded-input overflow-hidden bg-canvas border border-ash">
-          <video ref={videoRef} muted playsInline className="w-full h-full object-cover" />
+          <video ref={videoRef} muted playsInline autoPlay className="w-full h-full object-cover" />
           {phase === "idle" && (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-graphite">
               Camera off
