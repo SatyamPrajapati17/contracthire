@@ -21,6 +21,7 @@ async function gmailSend(from: string, msg: EmailMessage): Promise<EmailSendResu
     host: "smtp.gmail.com",
     port: 465,
     secure: true,
+    family: 4, // Railway/serverless containers have no IPv6 route
     auth: { user, pass }
   });
   try {
@@ -58,6 +59,7 @@ async function gmailOauthSend(from: string, msg: EmailMessage): Promise<EmailSen
     host: "smtp.gmail.com",
     port: 465,
     secure: true,
+    family: 4,
     auth: { type: "OAuth2", user, clientId, clientSecret, refreshToken }
   });
   try {
