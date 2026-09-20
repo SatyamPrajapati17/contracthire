@@ -1,0 +1,262 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────────────────
+   ContractLens design tokens (doc 05). Source of truth — Tailwind mirrors
+   these via tailwind.config.ts. No raw values in component code.
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  /* Ground */
+  --cl-parchment:        #f6f3f1;
+  --cl-surface:          #fbfaf9;
+  --cl-surface-sunken:   #efebe8;
+
+  /* Primary action */
+  --cl-lake:             #2b59d1;
+  --cl-lake-hover:       #234ab0;
+  --cl-lake-active:      #1d3d92;
+  --cl-lake-tint:        #e8eefc;
+
+  /* Structural panels */
+  --cl-periwinkle:       #cfdaf5;
+  --cl-periwinkle-deep:  #a0b5eb;
+
+  /* Accents */
+  --cl-mint:             #a7fccd;
+  --cl-coral:            #ff9473;
+  --cl-gold:             #ecda98;
+  --cl-orange:           #f37a0a;
+
+  /* Ink scale */
+  --cl-ink:              #000000;
+  --cl-offblack:         #242424;
+  --cl-graphite:         #4e4d4d;
+  --cl-smoke:            #797776;
+  --cl-ash:              #cecac8;
+  --cl-ash-soft:         #e3dfdc;
+
+  /* Semantic (text uses darkened companion on pastel bg) */
+  --cl-critical:         #b3320d;
+  --cl-critical-bg:      #ffe4dc;
+  --cl-high:             #a35205;
+  --cl-high-bg:          #fde7cf;
+  --cl-medium:           #7a6412;
+  --cl-medium-bg:        #f8f0d6;
+  --cl-low:              #4e4d4d;
+  --cl-low-bg:           #eceae8;
+  --cl-success:          #0f6b42;
+  --cl-success-bg:       #dcfbea;
+  --cl-info:             #234ab0;
+  --cl-info-bg:          #e8eefc;
+
+  /* Spacing */
+  --sp-1: 8px;  --sp-2: 16px; --sp-3: 24px; --sp-4: 32px;
+  --sp-5: 40px; --sp-6: 48px; --sp-8: 64px; --sp-12: 96px;
+
+  /* Radius */
+  --r-card: 40px; --r-panel: 24px; --r-input: 12px; --r-pill: 100px;
+
+  /* Layout */
+  --pad-card: 40px;
+  --gap-el: 16px;
+  --gap-sec: 64px;
+  --w-content: 1432px;
+  --w-prose: 680px;
+  --rail-open: 248px;
+  --rail-icon: 72px;
+
+  --hairline: 1px solid var(--cl-ash);
+
+  /* Motion */
+  --ease-out-cubic: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-page: 200ms;
+  --dur-drawer: 240ms;
+  --dur-drawer-close: 180ms;
+  --dur-card: 220ms;
+  --dur-citation: 260ms;
+  --dur-stage: 180ms;
+  --dur-redline: 200ms;
+  --dur-toast-in: 200ms;
+  --dur-toast-out: 160ms;
+  --dur-value: 180ms;
+}
+
+/* ── Base ──────────────────────────────────────────────────────────────── */
+html {
+  font-size: 16px;
+}
+body {
+  background: var(--cl-parchment);
+  color: var(--cl-offblack);
+  font-family: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+  font-size: 14px;
+  line-height: 22px;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 {
+  font-family: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  font-weight: 400;
+  color: var(--cl-ink);
+}
+h1 { font-size: 40px; line-height: 48px; letter-spacing: -0.01em; }
+h2 { font-size: 32px; line-height: 40px; letter-spacing: -0.01em; }
+h3 { font-size: 20px; line-height: 28px; }
+h4 { font-size: 17px; line-height: 26px; }
+
+::selection { background: var(--cl-periwinkle); }
+
+/* ── Focus: 2px lake ring, 2px offset, never suppressed ────────────────── */
+:focus-visible {
+  outline: 2px solid var(--cl-lake);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Skip link */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--cl-surface);
+  border: var(--hairline);
+  padding: 8px 16px;
+  z-index: 100;
+  border-radius: 0 0 12px 0;
+}
+.skip-link:focus { left: 0; }
+
+/* ── Hairline surfaces ─────────────────────────────────────────────────── */
+.hairline { border: var(--hairline); }
+.card {
+  background: var(--cl-surface);
+  border: var(--hairline);
+  border-radius: var(--r-card);
+  padding: var(--pad-card);
+}
+.panel {
+  background: var(--cl-surface);
+  border: var(--hairline);
+  border-radius: var(--r-panel);
+}
+.floating {
+  box-shadow: 0 8px 32px rgba(36, 36, 36, 0.10);
+}
+
+/* ── Tables: no zebra, hairline rules, sticky header ───────────────────── */
+.cl-table { width: 100%; border-collapse: collapse; }
+.cl-table th {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px; line-height: 16px; font-weight: 500;
+  color: var(--cl-graphite);
+  text-align: left;
+  padding: 16px 12px;
+  border-bottom: var(--hairline);
+  position: sticky; top: 0;
+  background: var(--cl-surface);
+}
+.cl-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--cl-ash-soft);
+  font-size: 13px;
+}
+.cl-table tbody tr:hover { background: var(--cl-lake-tint); }
+.cl-table tbody tr.selected { background: var(--cl-periwinkle); box-shadow: inset 2px 0 0 var(--cl-lake); }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ── Citation highlight in the document viewer ─────────────────────────── */
+.cite-highlight {
+  background: rgba(236, 218, 152, 0.45);
+  box-shadow: inset 2px 0 0 var(--cl-orange);
+  border-radius: 2px;
+  transition: background 260ms var(--ease-out-cubic);
+}
+.cite-highlight.pulsing { animation: citePulse 600ms ease-in-out 2; }
+@keyframes citePulse {
+  0%, 100% { background: rgba(236, 218, 152, 0.45); }
+  50%      { background: rgba(236, 218, 152, 0.85); }
+}
+.search-match { background: rgba(160, 181, 235, 0.5); }
+
+/* ── Processing shimmer (running stage chip) ───────────────────────────── */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(43, 89, 209, 0.06) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: shimmerSweep 1.6s infinite linear;
+}
+@keyframes shimmerSweep {
+  to { transform: translateX(100%); }
+}
+
+/* ── Page / tab transition ─────────────────────────────────────────────── */
+.page-enter { animation: pageIn 200ms var(--ease-out-cubic); }
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Drawer ────────────────────────────────────────────────────────────── */
+.drawer-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(36, 36, 36, 0.18);
+  animation: fadeIn 240ms ease-out;
+}
+.drawer-panel {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 480px; max-width: 100vw;
+  background: var(--cl-surface);
+  border-left: var(--hairline);
+  border-radius: var(--r-panel) 0 0 var(--r-panel);
+  box-shadow: 0 8px 32px rgba(36, 36, 36, 0.10);
+  animation: drawerIn 240ms ease-out;
+  display: flex; flex-direction: column;
+}
+@keyframes drawerIn { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── Toast ─────────────────────────────────────────────────────────────── */
+.toast-in { animation: toastIn 200ms ease-out; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+/* Value-update flash after a correction */
+.value-flash { animation: valueFlash 180ms linear; }
+@keyframes valueFlash { from { background: var(--cl-info-bg); } to { background: transparent; } }
+
+/* Card entrance, once per page load */
+.card-enter { animation: cardIn 220ms ease-out backwards; }
+@keyframes cardIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ── Reduced motion: everything collapses to 0ms (doc 05 §4 MUST) ──────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+  }
+  .shimmer::after { display: none; }
+  .shimmer::before {
+    content: "running";
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    color: var(--cl-info);
+  }
+}
+
+/* ── Print ─────────────────────────────────────────────────────────────── */
+@media print {
+  :root { --cl-parchment: #ffffff; }
+  .no-print { display: none !important; }
+  body { background: #fff; }
+}

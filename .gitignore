@@ -1,0 +1,16 @@
+node_modules/
+.next/
+storage/
+.env
+.env.local
+*.tsbuildinfo
+next-env.d.ts
+
+# docs & local-only files (kept out of the repo per owner)
+*.md
+.env.example
+.localserver/
+*.log
+.DS_Store
+Thumbs.db
+.next*/
