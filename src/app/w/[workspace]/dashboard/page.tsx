@@ -53,7 +53,7 @@ export default async function Dashboard({ params }: { params: Promise<{ workspac
         <h2>Dashboard</h2>
         <div className="flex items-center gap-3">
           <ExportButtons workspaceId={workspace} />
-          <Link href={`${workspace}/contracts?upload=1`}>
+          <Link href={`/w/${workspace}/contracts?upload=1`}>
             <PrimaryButton>Upload contract</PrimaryButton>
           </Link>
         </div>
@@ -63,7 +63,7 @@ export default async function Dashboard({ params }: { params: Promise<{ workspac
         <EmptyState
           title="No contracts yet"
           explanation="Upload an agreement and ContractLens will extract its terms, obligations, and deadlines — each one cited to the source text."
-          action={<Link href={`${workspace}/contracts?upload=1`}><PrimaryButton>Upload your first contract</PrimaryButton></Link>}
+          action={<Link href={`/w/${workspace}/contracts?upload=1`}><PrimaryButton>Upload your first contract</PrimaryButton></Link>}
         />
       ) : (
         <>
