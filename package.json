@@ -17,9 +17,9 @@
   "dependencies": {
     "@vladmandic/face-api": "^1.7.15",
     "dotenv": "^18.0.1",
-    "drizzle-orm": "^0.44.2",
+    "drizzle-orm": "^0.45.2",
     "mammoth": "^1.8.0",
-    "next": "15.5.4",
+    "next": "^15.5.25",
     "nodemailer": "^10.0.10",
     "pdfjs-dist": "4.10.38",
     "pg": "^8.16.0",
