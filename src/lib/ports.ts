@@ -67,7 +67,44 @@ export const localStorage: StoragePort = {
   }
 };
 
-export const storage: StoragePort = localStorage;
+/* DB-backed driver (STORAGE_DRIVER=db): serverless hosts like Vercel have an
+   ephemeral filesystem, so contract bytes live in Postgres instead. Same port. */
+export const dbStorage: StoragePort = {
+  async put(key, data) {
+    const k = safeKey(key);
+    await (await import("./db/client")).pool.query(
+      `INSERT INTO object_store (key, data, size, updated_at) VALUES ($1, $2, $3, now())
+       ON CONFLICT (key) DO UPDATE SET data = EXCLUDED.data, size = EXCLUDED.size, updated_at = now()`,
+      [k, data, data.length]
+    );
+  },
+  async get(key) {
+    const res = await (await import("./db/client")).pool.query<{ data: Buffer }>(
+      `SELECT data FROM object_store WHERE key = $1`, [safeKey(key)]
+    );
+    if (!res.rows[0]) throw new Error(`storage key not found: ${key}`);
+    return res.rows[0].data;
+  },
+  async exists(key) {
+    const res = await (await import("./db/client")).pool.query(
+      `SELECT 1 FROM object_store WHERE key = $1`, [safeKey(key)]
+    );
+    return res.rowCount === 1;
+  },
+  async delete(key) {
+    await (await import("./db/client")).pool.query(`DELETE FROM object_store WHERE key = $1`, [safeKey(key)]);
+  },
+  async list(prefix) {
+    const res = await (await import("./db/client")).pool.query<{ key: string }>(
+      `SELECT key FROM object_store WHERE key LIKE $1 ORDER BY key`, [safeKey(prefix) + "%"]
+    );
+    return res.rows.map((r) => r.key);
+  }
+};
+
+/** STORAGE_DRIVER=db for serverless (Vercel), local filesystem otherwise. */
+export const storage: StoragePort =
+  (process.env.STORAGE_DRIVER || "local") === "db" ? dbStorage : localStorage;
 
 /* ═══════════════════════════ LLMPort ═══════════════════════════════════
    Structured outputs + Zod validation on every call. Providers:

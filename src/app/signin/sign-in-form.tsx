@@ -72,17 +72,6 @@ export function SignInForm() {
             {state === "error" && (
               <p className="text-critical text-xs mt-3" role="alert">Could not send the link. Try again.</p>
             )}
-            <div className="flex items-center gap-3 my-5" aria-hidden>
-              <span className="flex-1 border-t border-ash-soft" />
-              <span className="text-xs text-smoke">or</span>
-              <span className="flex-1 border-t border-ash-soft" />
-            </div>
-            <a
-              href="/api/auth/signin-google"
-              className="w-full rounded-pill border border-ash text-sm py-3 flex items-center justify-center gap-2 hover:border-periwinkle-deep"
-            >
-              <span aria-hidden className="font-medium">G</span> Continue with Google
-            </a>
             <button
               type="button"
               onClick={() => setFaceOpen(true)}
@@ -135,6 +124,43 @@ export function SignInForm() {
             </button>
           </div>
         )}
+
+        {/* Demo personas — one-click sign-in (emails the magic link for real) */}
+        <div className="border-t border-ash-soft pt-5 mt-8">
+          <p className="text-xs text-smoke mb-3">Demo personas — one click, we email you the sign-in link:</p>
+          <div className="grid sm:grid-cols-2 gap-2">
+            {[
+              { email: "mira@harbourline.example", name: "Mira · Legal reviewer" },
+              { email: "priya@harbourline.example", name: "Priya · Admin" }
+            ].map((p) => (
+              <button
+                key={p.email}
+                type="button"
+                onClick={async () => {
+                  setEmail(p.email);
+                  setState("sending");
+                  try {
+                    const res = await fetch("/api/auth/magic-link", {
+                      method: "POST",
+                      headers: { "content-type": "application/json" },
+                      body: JSON.stringify({ email: p.email })
+                    });
+                    const body = await res.json();
+                    setDevUrl(body.dev_url ?? null);
+                    setMailInfo({ provider: body.email_provider ?? "console", delivered: !!body.email_delivered, error: body.email_error });
+                    setState("sent");
+                  } catch {
+                    setState("error");
+                  }
+                }}
+                className="rounded-pill border border-ash px-4 py-2.5 text-xs text-left hover:border-periwinkle-deep hover:bg-lake-tint transition-colors"
+              >
+                <span className="font-medium">{p.name}</span>
+                <span className="block text-smoke">{p.email}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
         <p className="text-xs text-smoke mt-10 border-t border-ash-soft pt-4">
           AI assistance tool, not legal advice. Verify before relying.

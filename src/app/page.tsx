@@ -113,6 +113,9 @@ export default async function Home() {
         </div>
 
         <div className="relative max-w-content mx-auto px-6 pt-20 pb-16 text-center">
+          <p className="text-xs uppercase text-smoke mb-5" style={{ letterSpacing: "0.08em" }}>
+            Agentic contract intelligence · every fact cited
+          </p>
           <h1 className="font-serif text-[44px] leading-[1.1] sm:text-6xl md:text-7xl lg:text-[80px] lg:leading-[1.15] text-offblack" style={{ letterSpacing: "-0.02em" }}>
             A missed 60-day renewal<br className="hidden sm:block" /> notice on page 14<br className="hidden sm:block" /> costs five figures.
           </h1>
@@ -135,7 +138,7 @@ export default async function Home() {
       <section className="max-w-content mx-auto px-6 pb-20" aria-label="Example extracted facts">
         <div className="grid sm:grid-cols-3 gap-4 max-w-4xl mx-auto">
           {DEMO_FACTS.map((f) => (
-            <div key={f.label} className="rounded-card border border-ash bg-surface p-6">
+            <div key={f.label} className="rounded-card border border-ash bg-surface p-6 card-enter transition-transform duration-200 hover:-translate-y-0.5">
               <p className="text-[11px] uppercase text-smoke mb-2">{f.label}</p>
               <p className="font-serif text-2xl text-offblack">{f.value}</p>
               <p className="text-xs text-success mt-3">confidence {f.conf} · cited</p>
@@ -155,7 +158,7 @@ export default async function Home() {
         </h2>
         <div className="grid md:grid-cols-2 gap-5">
           {PROBLEMS.map((p) => (
-            <div key={p.n} className="rounded-card border border-ash bg-surface p-7 transition-colors hover:border-periwinkle-deep">
+            <div key={p.n} className="rounded-card border border-ash bg-surface p-7 card-enter transition-colors hover:border-periwinkle-deep">
               <p className="text-xs text-lake mb-3">{p.n}</p>
               <h3 className="font-serif text-xl mb-2">{p.pain}</h3>
               <p className="text-sm text-graphite leading-relaxed">{p.evidence}</p>

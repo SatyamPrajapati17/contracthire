@@ -1,0 +1,67 @@
+CONTRACTLENS — ENVIRONMENT VARIABLES
+=====================================
+Set these in Vercel → your project → Settings → Environment Variables.
+(For localhost, put them in a file named ".env" — never commit that file.)
+
+REQUIRED — DATABASE (Supabase, free tier works)
+-----------------------------------------------
+DATABASE_URL = postgresql://postgres.<PROJECT_REF>:<DB_PASSWORD>@aws-0-<REGION>.pooler.supabase.com:5432/postgres?sslmode=require
+  # Supabase → Project Settings → Database → Connection string → "Pooled" / URI.
+  # Keep the ?sslmode=require suffix. This app uses the pooler (works on serverless).
+
+REQUIRED — AI (NVIDIA NIM, one key does chat + embeddings)
+----------------------------------------------------------
+NVIDIA_API_KEY = nvapi-...
+  # build.nvidia.com → "Get API Key". The app auto-selects models, or override:
+  # NIM_MODELS = {"chat":"...","extract":"...","embed":"...","qa":"...","brief":"...","obligations":"...","risk":"..."}
+
+REQUIRED — APP URL
+------------------
+APP_URL = https://<your-project>.vercel.app   (or http://localhost:3000 locally)
+  # Used to build magic links and email buttons. Must match where the app runs.
+
+REQUIRED ON VERCEL — SERVERLESS SWITCHES
+----------------------------------------
+STORAGE_DRIVER = db
+  # Vercel's filesystem is ephemeral; "db" stores uploaded contract bytes in
+  # Postgres (object_store table). Leave unset for localhost (local ./storage).
+CRON_SECRET = <any long random string>
+  # Protects /api/cron/tick, which Vercel Cron calls every 2 minutes (vercel.json).
+  # Vercel automatically sends "Authorization: Bearer <CRON_SECRET>".
+
+EMAIL AUTOMATION — MAGIC-LINK SIGN-IN + ALERTS (Gmail, free)
+------------------------------------------------------------
+EMAIL_PROVIDER = gmail
+GMAIL_USER     = <your Gmail address>
+GMAIL_APP_PASSWORD = <16-char Google App Password>
+  # Google Account → Security → 2-Step Verification ON → App passwords → Mail.
+  # Regular Gmail password will NOT work.
+MAIL_FROM = ContractLens <<GMAIL_USER>>
+
+OPTIONAL — GOOGLE OAUTH (sign-in + Sheets export)
+-------------------------------------------------
+GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET
+  # console.cloud.google.com → Credentials → OAuth client (Web).
+  # Authorized redirect URIs (exact, no trailing slash):
+  #   https://<your-domain>/api/auth/signin-google
+  #   https://<your-domain>/api/connections/google/callback
+  # Add users under OAuth consent screen → Test users while in Testing mode.
+GOOGLE_SHEETS_ID = <sheet ID from its URL>
+ENCRYPTION_KEY = <64 hex chars>   # openssl rand -hex 32 — encrypts stored OAuth tokens
+
+OPTIONAL — EMAIL FALLBACK (Resend) — skip if using Gmail above
+--------------------------------------------------------------
+RESEND_API_KEY = re_...
+MAIL_FROM = ContractLens <onboarding@resend.dev>
+
+OPTIONAL — TUNING (sensible defaults already coded)
+---------------------------------------------------
+WORKER_POLL_MS = 1000          # localhost worker poll interval
+SHEETS_SYNC = off              # "on" = 15-min keep-synced sweep (cron on Vercel)
+NIM_MAX_TOKENS = 32768         # structured-output token ceiling
+
+WHAT RUNS WHERE
+---------------
+localhost  : npm run dev  → Next.js app + worker process + 15-min sweeps.
+Vercel     : app + /api/cron/tick every 2 min (vercel.json) claims queued
+             pipeline jobs and runs the alert sweep. STORAGE_DRIVER=db.
