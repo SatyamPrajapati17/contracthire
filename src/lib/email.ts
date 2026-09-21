@@ -15,6 +15,15 @@ import dns from "node:dns";
 // smtp.gmail.com resolves to IPv4 first, else SMTP connects ENETUNREACH.
 try { dns.setDefaultResultOrder("ipv4first"); } catch { /* older Node */ }
 
+/** Explicitly resolve an IPv4 address — nodemailer/Node can still pick an
+ *  AAAA record on hosts with no IPv6 route (ENETUNREACH), so we pin the IP
+ *  ourselves and keep TLS valid via SNI (tls.servername). */
+async function resolveIPv4(host: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    dns.lookup(host, { family: 4 }, (err, address) => (err || !address ? resolve(null) : resolve(address)));
+  });
+}
+
 /** Fail-fast SMTP settings — never hang a sign-in request on a blocked port. */
 const SMTP_TIMEOUTS = {
   connectionTimeout: 10_000,
@@ -29,11 +38,12 @@ async function gmailSend(from: string, msg: EmailMessage): Promise<EmailSendResu
     return { delivered: false, provider: "gmail", error: "GMAIL_USER and GMAIL_APP_PASSWORD are required (use a 16-char Google App Password, not your login password)" };
   }
   const attempt = async (port: number, secure: boolean): Promise<EmailSendResult> => {
+    const ip = await resolveIPv4("smtp.gmail.com");
     const transport = nodemailer.createTransport({
-      host: "smtp.gmail.com",
+      host: ip ?? "smtp.gmail.com", // pinned IPv4 when resolvable
       port,
       secure,
-      family: 4, // Railway/serverless containers have no IPv6 route
+      tls: { servername: "smtp.gmail.com" }, // SNI keeps the cert check valid
       ...SMTP_TIMEOUTS,
       auth: { user, pass }
     } as TransportOptions);
@@ -76,11 +86,12 @@ async function gmailOauthSend(from: string, msg: EmailMessage): Promise<EmailSen
       error: "GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN and GOOGLE_EMAIL are required — visit /api/auth/google/start once to authorize and get the refresh token"
     };
   }
+  const oauthIp = await resolveIPv4("smtp.gmail.com");
   const transport = nodemailer.createTransport({
-    host: "smtp.gmail.com",
+    host: oauthIp ?? "smtp.gmail.com",
     port: 465,
     secure: true,
-    family: 4,
+    tls: { servername: "smtp.gmail.com" },
     ...SMTP_TIMEOUTS,
     auth: { type: "OAuth2", user, clientId, clientSecret, refreshToken }
   } as TransportOptions);
