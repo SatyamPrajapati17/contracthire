@@ -1,36 +1,43 @@
 /* ═══════════════════════ EmailPort ═════════════════════════════════════
    Email automation behind a port. Providers:
-     gmail   — Gmail SMTP with an App Password (GMAIL_USER + GMAIL_APP_PASSWORD)
-     resend  — POST https://api.resend.com/emails (RESEND_API_KEY + MAIL_FROM)
-     console — dev fallback, logs the message (no key needed)
+     gmail        — Gmail SMTP with an App Password (GMAIL_USER + GMAIL_APP_PASSWORD)
+     gmail-oauth  — Gmail SMTP with an OAuth refresh token (XOAUTH2)
+     resend       — POST https://api.resend.com/emails (RESEND_API_KEY + MAIL_FROM)
+     console      — dev fallback, logs the message (no key needed)
    Used by: magic-link sign-in (auth emails) and the alert scheduler sweep
    (due-date reminders on the `email` channel). ════════════════════════ */
 
 import nodemailer from "nodemailer";
-import type { Transporter, TransportOptions } from "nodemailer";
+import type { TransportOptions } from "nodemailer";
 import dns from "node:dns";
 
 // Serverless containers (Railway etc.) often have no IPv6 route; make sure
 // smtp.gmail.com resolves to IPv4 first, else SMTP connects ENETUNREACH.
 try { dns.setDefaultResultOrder("ipv4first"); } catch { /* older Node */ }
 
-/** Lazy nodemailer transport so importing this module never opens a socket. */
-let gmailTransport: Transporter | null = null;
+/** Fail-fast SMTP settings — never hang a sign-in request on a blocked port. */
+const SMTP_TIMEOUTS = {
+  connectionTimeout: 10_000,
+  greetingTimeout: 10_000,
+  socketTimeout: 12_000
+};
+
 async function gmailSend(from: string, msg: EmailMessage): Promise<EmailSendResult> {
   const user = process.env.GMAIL_USER;
   const pass = process.env.GMAIL_APP_PASSWORD;
   if (!user || !pass) {
     return { delivered: false, provider: "gmail", error: "GMAIL_USER and GMAIL_APP_PASSWORD are required (use a 16-char Google App Password, not your login password)" };
   }
-  gmailTransport ??= nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    family: 4, // Railway/serverless containers have no IPv6 route
-    auth: { user, pass }
-  } as TransportOptions);
-  try {
-    const info = await gmailTransport.sendMail({
+  const attempt = async (port: number, secure: boolean): Promise<EmailSendResult> => {
+    const transport = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port,
+      secure,
+      family: 4, // Railway/serverless containers have no IPv6 route
+      ...SMTP_TIMEOUTS,
+      auth: { user, pass }
+    } as TransportOptions);
+    const info = await transport.sendMail({
       from: from.startsWith("ContractLens") ? from : `ContractLens <${user}>`,
       to: msg.to,
       subject: msg.subject,
@@ -38,6 +45,16 @@ async function gmailSend(from: string, msg: EmailMessage): Promise<EmailSendResu
       html: msg.html
     });
     return { delivered: true, provider: "gmail", id: info.messageId };
+  };
+  try {
+    // 587 (STARTTLS) first — the least-blocked egress port on PaaS containers;
+    // 465 (implicit TLS) is the fallback for networks that downgrade 587.
+    try {
+      return await attempt(587, false);
+    } catch (e1) {
+      const r = await attempt(465, true);
+      return { ...r, error: `port587_fallback: ${(e1 instanceof Error ? e1.message : String(e1)).slice(0, 120)}` };
+    }
   } catch (err) {
     return { delivered: false, provider: "gmail", error: err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300) };
   }
@@ -47,7 +64,6 @@ async function gmailSend(from: string, msg: EmailMessage): Promise<EmailSendResu
    Uses a Google Cloud OAuth client + refresh token instead of an App Password.
    One-time consent flow: /api/auth/google/start → consent → /api/auth/google/
    callback prints the refresh token to paste into GOOGLE_REFRESH_TOKEN. */
-let oauthTransport: Transporter | null = null;
 async function gmailOauthSend(from: string, msg: EmailMessage): Promise<EmailSendResult> {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -60,15 +76,16 @@ async function gmailOauthSend(from: string, msg: EmailMessage): Promise<EmailSen
       error: "GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN and GOOGLE_EMAIL are required — visit /api/auth/google/start once to authorize and get the refresh token"
     };
   }
-  oauthTransport ??= nodemailer.createTransport({
+  const transport = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 465,
     secure: true,
     family: 4,
+    ...SMTP_TIMEOUTS,
     auth: { type: "OAuth2", user, clientId, clientSecret, refreshToken }
   } as TransportOptions);
   try {
-    const info = await oauthTransport.sendMail({
+    const info = await transport.sendMail({
       from: from.startsWith("ContractLens") ? from : `ContractLens <${user}>`,
       to: msg.to,
       subject: msg.subject,
