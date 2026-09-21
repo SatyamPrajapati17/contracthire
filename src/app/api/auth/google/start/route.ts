@@ -1,9 +1,11 @@
 /* Gmail OAuth consent start — one-time setup flow.
    Redirects to Google's consent screen; the callback prints the refresh
-   token to paste into GOOGLE_REFRESH_TOKEN. Scope is the full Gmail scope,
-   which is what Gmail's SMTP server requires for XOAUTH2. */
+   token to paste into GOOGLE_REFRESH_TOKEN. Scope is the full Gmail scope
+   (auth/gmail.send + auth/gmail.modify), which the Gmail REST API and SMTP
+   XOAUTH2 both require. */
 
-const GMAIL_SMTP_SCOPE = "https://mail.google.com/";
+const GMAIL_SMTP_SCOPE =
+  "https://mail.google.com/ https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify";
 
 export async function GET(req: Request) {
   const clientId = process.env.GOOGLE_CLIENT_ID;

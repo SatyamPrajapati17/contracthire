@@ -1,5 +1,7 @@
-/* Gmail OAuth callback — exchanges the consent code for tokens, prints the
-   refresh token with exact .env lines. One-time setup; paste, restart, done. */
+/* Gmail OAuth callback — exchanges the consent code for tokens, stores the
+   refresh token in app_settings (used by the Gmail REST sender) AND prints
+   it for optional .env use. One-time setup; consent once, done. */
+import { setSetting } from "@/lib/app-settings";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -50,12 +52,33 @@ export async function GET(req: Request) {
     return page("Gmail authorization", `<h2>No refresh token returned</h2><p>Google only issues one when <code>access_type=offline</code> and <code>prompt=consent</code> are set — retry via <a href="/api/auth/google/start">/api/auth/google/start</a>, or revoke the app at myaccount.google.com/permissions first.</p>`);
   }
 
+  // Persist for the Gmail REST sender (EMAIL_PROVIDER=gmail-api) — picked up
+  // immediately, no redeploy. A GOOGLE_REFRESH_TOKEN env var still wins.
+  // The sender address is derived from the actual consented account (userinfo),
+  // NOT from env fallbacks — they may point at a different Gmail.
+  let senderEmail = "";
+  try {
+    const ui = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: { authorization: `Bearer ${tok.access_token}` }
+    });
+    if (ui.ok) senderEmail = ((await ui.json()) as { email?: string }).email ?? "";
+  } catch {
+    /* userinfo failed — fall through to env fallback below */
+  }
+  try {
+    await setSetting("gmail_refresh_token", tok.refresh_token);
+    await setSetting("gmail_sender_email", senderEmail || process.env.GOOGLE_EMAIL || process.env.GMAIL_USER || "");
+  } catch {
+    /* table missing (migration 0008 not applied) — env paste still works */
+  }
+
   return page(
     "Gmail authorized ✓",
     `<h2>✓ Gmail authorized</h2>` +
-    `<p>Paste these lines into <code>.env</code> (replace EMAIL_PROVIDER too):</p>` +
-    `<pre style="white-space:pre-wrap;background:#f4f5f6;padding:12px;border-radius:8px;">EMAIL_PROVIDER=gmail-oauth\nGOOGLE_CLIENT_ID=${clientId}\nGOOGLE_REFRESH_TOKEN=${tok.refresh_token}</pre>` +
-    `<p>Then restart the dev server. The email automations (magic-link sign-in + due-date reminders) will send from this Gmail account.</p>` +
+    `<p><strong>Saved.</strong> Connected as <strong>${senderEmail || "(address unavailable)"}</strong> — set <code>EMAIL_PROVIDER=gmail-api</code> in your env (or leave <code>gmail</code> on localhost where SMTP works).</p>` +
+    `<p>Optional — paste into <code>.env</code> if you prefer env-based config:</p>` +
+    `<pre style="white-space:pre-wrap;background:#f4f5f6;padding:12px;border-radius:8px;">EMAIL_PROVIDER=gmail-api\nGOOGLE_CLIENT_ID=${clientId}\nGOOGLE_REFRESH_TOKEN=${tok.refresh_token}</pre>` +
+    `<p>Email automations (magic-link sign-in + due-date reminders) will send from this Gmail account.</p>` +
     `<p><a href="/">Back to ContractLens</a></p>`
   );
 }

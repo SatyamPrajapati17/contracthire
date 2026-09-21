@@ -10,6 +10,7 @@
 import nodemailer from "nodemailer";
 import type { TransportOptions } from "nodemailer";
 import dns from "node:dns";
+import { getSetting } from "@/lib/app-settings";
 
 // Serverless containers (Railway etc.) often have no IPv6 route; make sure
 // smtp.gmail.com resolves to IPv4 first, else SMTP connects ENETUNREACH.
@@ -70,6 +71,66 @@ async function gmailSend(from: string, msg: EmailMessage): Promise<EmailSendResu
   }
 }
 
+/* ── Gmail REST API (port 443) ────────────────────────────────────────────
+   PaaS containers (Railway etc.) block outbound SMTP ports 587/465, but 443
+   is always open. This provider sends through the Gmail REST API using the
+   same Google OAuth client; one-time consent at /api/auth/google/start
+   prints the GOOGLE_REFRESH_TOKEN to paste into env. */
+async function gmailApiSend(from: string, msg: EmailMessage): Promise<EmailSendResult> {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  // Refresh token: env first, else the one stored by the consent callback
+  // (app_settings — set via /api/auth/google/start, no redeploy needed).
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN || (await getSetting("gmail_refresh_token")) || "";
+  const user = process.env.GOOGLE_EMAIL || (await getSetting("gmail_sender_email")) || process.env.GMAIL_USER || "";
+  if (!clientId || !clientSecret || !refreshToken || !user) {
+    return {
+      delivered: false,
+      provider: "gmail-api",
+      error: "Gmail sender not authorized — open /api/auth/google/start once and consent (stores the token automatically); GOOGLE_CLIENT_ID/SECRET must be set"
+    };
+  }
+  try {
+    const tokRes = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+        grant_type: "refresh_token"
+      })
+    });
+    const tok = (await tokRes.json()) as { access_token?: string; error_description?: string };
+    if (!tokRes.ok || !tok.access_token) {
+      return { delivered: false, provider: "gmail-api", error: `token_refresh_failed ${tokRes.status}: ${(tok.error_description ?? "unknown").slice(0, 200)}` };
+    }
+    const boundary = "cl_multipart_7d3a";
+    const raw =
+      `From: ${from.startsWith("ContractLens") ? from : `ContractLens <${user}>`}\r\n` +
+      `To: ${msg.to}\r\n` +
+      `Subject: ${msg.subject.replace(/[\r\n]+/g, " ")}\r\n` +
+      `MIME-Version: 1.0\r\n` +
+      `Content-Type: multipart/alternative; boundary="${boundary}"\r\n\r\n` +
+      `--${boundary}\r\nContent-Type: text/plain; charset="UTF-8"\r\n\r\n${msg.text}\r\n` +
+      `--${boundary}\r\nContent-Type: text/html; charset="UTF-8"\r\n\r\n${msg.html}\r\n` +
+      `--${boundary}--`;
+    const sendRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+      method: "POST",
+      headers: { authorization: `Bearer ${tok.access_token}`, "content-type": "application/json" },
+      body: JSON.stringify({ raw: Buffer.from(raw).toString("base64url") })
+    });
+    if (!sendRes.ok) {
+      const body = await sendRes.text();
+      return { delivered: false, provider: "gmail-api", error: `gmail_api_error ${sendRes.status}: ${body.slice(0, 240)}` };
+    }
+    const sent = (await sendRes.json()) as { id?: string };
+    return { delivered: true, provider: "gmail-api", id: sent.id };
+  } catch (err) {
+    return { delivered: false, provider: "gmail-api", error: err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300) };
+  }
+}
+
 /* ── Gmail OAuth (XOAUTH2) ────────────────────────────────────────────────
    Uses a Google Cloud OAuth client + refresh token instead of an App Password.
    One-time consent flow: /api/auth/google/start → consent → /api/auth/google/
@@ -77,8 +138,8 @@ async function gmailSend(from: string, msg: EmailMessage): Promise<EmailSendResu
 async function gmailOauthSend(from: string, msg: EmailMessage): Promise<EmailSendResult> {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
-  const user = process.env.GOOGLE_EMAIL || process.env.GMAIL_USER;
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN || (await getSetting("gmail_refresh_token")) || "";
+  const user = process.env.GOOGLE_EMAIL || (await getSetting("gmail_sender_email")) || process.env.GMAIL_USER;
   if (!clientId || !clientSecret || !refreshToken || !user) {
     return {
       delivered: false,
@@ -182,7 +243,15 @@ export function email(): EmailPort {
   const provider = (process.env.EMAIL_PROVIDER || "console").toLowerCase();
   const from = process.env.MAIL_FROM || "ContractLens <onboarding@resend.dev>";
   cachedEmail =
-    provider === "gmail-oauth" || provider === "gmail_oauth"
+    provider === "gmail-api"
+      ? {
+          provider: "gmail-api",
+          from,
+          async send(msg) {
+            return gmailApiSend(from, msg);
+          }
+        }
+      : provider === "gmail-oauth" || provider === "gmail_oauth"
       ? {
           provider: "gmail-oauth",
           from,
